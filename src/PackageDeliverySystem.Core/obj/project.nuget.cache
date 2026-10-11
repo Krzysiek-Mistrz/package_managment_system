@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "wnkCQ0wOZxA=",
+  "success": true,
+  "projectFilePath": "/mnt/arch_storage/Dokumenty/Projekty/PackageDeliverySystem/src/PackageDeliverySystem.Core/PackageDeliverySystem.Core.csproj",
+  "expectedPackageFiles": [
+    "/home/krzychu/.nuget/packages/microsoft.netcore.app.ref/10.0.11/microsoft.netcore.app.ref.10.0.11.nupkg.sha512",
+    "/home/krzychu/.nuget/packages/microsoft.aspnetcore.app.ref/10.0.11/microsoft.aspnetcore.app.ref.10.0.11.nupkg.sha512"
+  ],
+  "logs": []
+}
