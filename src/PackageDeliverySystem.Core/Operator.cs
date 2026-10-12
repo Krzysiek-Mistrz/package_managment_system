@@ -2,6 +2,6 @@ namespace PackageDeliverySystem.Core;
 
 public class Operator : IPeople
 {
-    public string Id { get; set; } = string.Empty;
+    public int Id { get; set; } = 0;
     public string Name { get; set; } = string.Empty;
 }

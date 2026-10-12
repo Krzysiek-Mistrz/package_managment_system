@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PackageDeliverySystem.Infrastructure.Data;
 using PackageDeliverySystem.Infrastructure;
-using PackageDeliverySystem.Core.Interfaces;
 using PackageDeliverySystem.Core;
 
 // setup DI
@@ -31,8 +30,7 @@ using (var scope = serviceProvider.CreateScope())
     {
         Id = 1,
         Sender = sender,
-        Recipient = recipient,
-        Status = PackageStatus.Ordered
+        Recipient = recipient
     };
 
     Console.WriteLine($"Initial Status: {package.Status}");
