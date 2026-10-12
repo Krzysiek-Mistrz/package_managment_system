@@ -12,7 +12,7 @@ public class ParcelLocker
         _boxes.Add(box);
     }
 
-    public void RemoveBox(string boxId)
+    public void RemoveBox(int boxId)
     {
         var box = _boxes.FirstOrDefault(b => b.Id == boxId);
         if (box != null)
