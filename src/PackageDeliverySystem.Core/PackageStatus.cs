@@ -7,6 +7,9 @@ public enum PackageStatus
     Preparing,
     Shipped,
     Delivered,
+    Collected,
     Rejected,
-    Cancelled
+    Cancelled,
+    Expired,
+    ReturnedToSender
 }

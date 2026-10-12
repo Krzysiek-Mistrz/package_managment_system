@@ -8,5 +8,6 @@ namespace PackageDeliverySystem.Core
         Task AddAsync(Package package);
         Task UpdateAsync(Package package);
         Task<IEnumerable<Package>> GetAllAsync();
+        Task<IEnumerable<Package>> GetPackagesRequiringExpirationAsync();
     }
 }

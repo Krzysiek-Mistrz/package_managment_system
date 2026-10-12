@@ -14,26 +14,52 @@ namespace PackageDeliverySystem.Infrastructure
             _context = context;
         }
 
+        /// <summary>
+        /// retrieves a package by its unique identifier
+        /// </summary>
         public async Task<Package?> GetByIdAsync(Guid id)
         {
             return await _context.Packages.FindAsync(id);
         }
 
+        /// <summary>
+        /// adds a new package to the repository
+        /// </summary>
         public async Task AddAsync(Package package)
         {
             await _context.Packages.AddAsync(package);
             await _context.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// updates an existing package in the repository
+        /// </summary>
         public async Task UpdateAsync(Package package)
         {
             _context.Packages.Update(package);
             await _context.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// retrieves all packages from the repository
+        /// </summary>
         public async Task<IEnumerable<Package>> GetAllAsync()
         {
             return await _context.Packages.ToListAsync();
+        }
+
+        /// <summary>
+        /// scans 4 packages that have exceeded their allowed time 
+        /// </summary>
+        public async Task<IEnumerable<Package>> GetPackagesRequiringExpirationAsync()
+        {
+            var now = DateTime.UtcNow;
+            return await _context.Packages
+                .Where(p => 
+                    (p.Status == PackageStatus.Accepted && p.ExpiredAt < now) ||
+                    (p.Status == PackageStatus.Shipped && p.ExpiredAt < now)
+                )
+                .ToListAsync();
         }
     }
 }
