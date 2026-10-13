@@ -7,8 +7,12 @@ public class ParcelLocker
     private readonly List<Box> _boxes = new List<Box>();
     public IReadOnlyList<Box> Boxes => _boxes.AsReadOnly();
 
-    public void AddBox(Box box)
+    public void CreateBox(int id, string size)
     {
+        var box = new Box { 
+            Id = id, 
+            Size = size 
+        };
         _boxes.Add(box);
     }
 

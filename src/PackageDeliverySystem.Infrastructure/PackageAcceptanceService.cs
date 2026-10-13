@@ -9,11 +9,14 @@ public class PackageAcceptanceService : IPackageAcceptanceService
     private readonly INotificationService _notificationService;
     private readonly IPeopleService _peopleService;
 
-    public PackageAcceptanceService(IPackageRepository packageRepository, INotificationService notificationService)
+    public PackageAcceptanceService(
+        IPackageRepository packageRepository, 
+        INotificationService notificationService,
+        IPeopleService peopleService)
     {
         _packageRepository = packageRepository;
         _notificationService = notificationService;
-        _peopleService = new PeopleService();
+        _peopleService = peopleService;
     }
 
     /// <summary>

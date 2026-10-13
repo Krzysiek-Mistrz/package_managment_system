@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using PackageDeliverySystem.Core;
-using PackageDeliverySystem.Core;
 using PackageDeliverySystem.Infrastructure.Data;
 
 namespace PackageDeliverySystem.Infrastructure
@@ -17,7 +16,7 @@ namespace PackageDeliverySystem.Infrastructure
         /// <summary>
         /// retrieves a package by its unique identifier
         /// </summary>
-        public async Task<Package?> GetByIdAsync(Guid id)
+        public async Task<Package?> GetByIdAsync(int id)
         {
             return await _context.Packages.FindAsync(id);
         }

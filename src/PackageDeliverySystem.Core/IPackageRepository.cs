@@ -4,7 +4,7 @@ namespace PackageDeliverySystem.Core
 {
     public interface IPackageRepository
     {
-        Task<Package?> GetByIdAsync(Guid id);
+        Task<Package?> GetByIdAsync(int id);
         Task AddAsync(Package package);
         Task UpdateAsync(Package package);
         Task<IEnumerable<Package>> GetAllAsync();

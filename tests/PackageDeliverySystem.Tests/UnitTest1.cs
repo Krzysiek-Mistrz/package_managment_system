@@ -100,13 +100,15 @@ public class PackageTests
         var package = new Package { Id = 1, Status = PackageStatus.Ordered, BoxId = 10 };
         var operatorUser = new Operator { Id = 5, Name = "John Doe" };
 
-        _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);
+        // when code asks 4 GetByIdAsync don't go to the database. Just return package obj
+        _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);   
         _peopleMock.Setup(p => p.GetOperatorAsync(5)).ReturnsAsync(operatorUser);
 
         await _service.AcceptPackageAsync(1, 5, 10);
 
         Assert.Equal(PackageStatus.Accepted, package.Status);
         Assert.Equal(operatorUser, package.Operator);
+        // did the service actually call the UpdateAsync method just once?
         _packageRepoMock.Verify(r => r.UpdateAsync(package), Times.Once);
         _notificationMock.Verify(n => n.NotifyAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
