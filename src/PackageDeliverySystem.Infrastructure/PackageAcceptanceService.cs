@@ -1,7 +1,7 @@
 namespace PackageDeliverySystem.Core;
 
 /// <summary>
-/// service 4 orchestration user lookup, the package state change & the expiration check
+/// service 4 orchestration user lookup, the package state change &amp; the expiration check
 /// </summary>
 public class PackageAcceptanceService : IPackageAcceptanceService
 {

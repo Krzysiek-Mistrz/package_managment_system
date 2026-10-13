@@ -36,7 +36,7 @@ using (var scope = serviceProvider.CreateScope())
     var sender = new User { Id = 1, Name = "Alice" };
     var recipient = new User { Id = 2, Name = "Bob" };
     var operatorUser = new User { Id = 3, Name = "Charlie" };
-    var box = new Box { Id = 1, Size = BoxSize.Medium };
+    var box = new Box { Id = 1, Size = "Medium" };
     var package = new Package
     {
         Id = 1,

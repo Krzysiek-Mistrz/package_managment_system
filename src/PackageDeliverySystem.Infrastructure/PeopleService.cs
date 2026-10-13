@@ -17,17 +17,17 @@ public class PeopleService : IPeopleService
     /// retrieves a user by their unique identifier
     /// </summary>
     public async Task<User?> GetUserAsync(int userId) 
-        => await _context.Users.FindAsync(userId);
+        => await _context.Users.OfType<User>().FirstOrDefaultAsync(u => u.Id == userId);
 
     /// <summary>
     /// retrieves an operator by their unique identifier
     /// </summary>
     public async Task<Operator?> GetOperatorAsync(int operatorId) 
-        => await _context.Set<Operator>().FindAsync(operatorId);
+        => await _context.Users.OfType<Operator>().FirstOrDefaultAsync(o => o.Id == operatorId);
 
     /// <summary>
     /// retrieves a courier by their unique identifier
     /// </summary>
     public async Task<Courier?> GetCourierAsync(int courierId) 
-        => await _context.Set<Courier>().FindAsync(courierId);
+        => await _context.Users.OfType<Courier>().FirstOrDefaultAsync(c => c.Id == courierId);
 }

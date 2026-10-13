@@ -1,6 +1,6 @@
 namespace PackageDeliverySystem.Core;
 
-public class Courier : IPeople
+public class Courier : AbstractPerson
 {
     public int Id { get; set; } = 0;
     public string Name { get; set; } = string.Empty;

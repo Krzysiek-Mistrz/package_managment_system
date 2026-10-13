@@ -97,7 +97,7 @@ public class PackageTests
     [Fact]
     public async Task AcceptPackageAsync_ValidRequest_ShouldUpdateStatusAndNotify()
     {
-        var package = new Package { Id = 1, Status = PackageStatus.Ordered, BoxId = 10 };
+        var package = new Package { Id = 1, BoxId = 10 };
         var operatorUser = new Operator { Id = 5, Name = "John Doe" };
 
         // when code asks 4 GetByIdAsync don't go to the database. Just return package obj
@@ -116,7 +116,7 @@ public class PackageTests
     [Fact]
     public async Task AcceptPackageAsync_WrongBoxId_ShouldThrowArgumentException()
     {
-        var package = new Package { Id = 1, Status = PackageStatus.Ordered, BoxId = 10 };
+        var package = new Package { Id = 1, BoxId = 10 };
         _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);
 
         await Assert.ThrowsAsync<ArgumentException>(() => 
@@ -126,7 +126,9 @@ public class PackageTests
     [Fact]
     public async Task ProcessExpiredPackagesAsync_ShouldExpirePackages()
     {
-        var expiredPackage = new Package { Id = 1, Status = PackageStatus.Accepted };
+        var expiredPackage = new Package { Id = 1 };
+        expiredPackage.Accept();
+        
         typeof(Package).GetProperty(nameof(Package.ExpiredAt))?.SetValue(expiredPackage, DateTime.UtcNow.AddHours(-1));
 
         _packageRepoMock.Setup(r => r.GetPackagesRequiringExpirationAsync())
