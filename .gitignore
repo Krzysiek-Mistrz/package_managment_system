@@ -2,3 +2,5 @@ obj/
 bin/
 **/bin/
 **/obj/
+mysql_data/
+.env

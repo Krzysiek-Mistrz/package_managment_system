@@ -2,6 +2,5 @@ namespace PackageDeliverySystem.Core;
 
 public class Operator : AbstractPerson
 {
-    public int Id { get; set; } = 0;
-    public string Name { get; set; } = string.Empty;
+    public List<Package>? Packages { get; set; } = new List<Package>();
 }

@@ -1,0 +1,12 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-package_delivery_system}
+      - MYSQL_USER=${MYSQL_USER:-package_delivery_system_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-package_delivery_system_password}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql

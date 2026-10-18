@@ -3,11 +3,15 @@ namespace PackageDeliverySystem.Core;
 public class Package
 {
     public int Id { get; set; } = 0;
-    public int BoxId { get; set; }
+    public int? BoxId { get; set; }
     public PackageStatus Status { get; private set; } = PackageStatus.Ordered;
+    public int SenderId { get; set; }
     public User Sender { get; set; } = null!;
+    public int RecipientId { get; set; }
     public User Recipient { get; set; } = null!;
+    public int? CourierId { get; set; }
     public Courier? Courier { get; set; }
+    public int? OperatorId { get; set; }
     public Operator? Operator { get; set; }
     public Box? Box { get; set; } = null!;
 
@@ -108,7 +112,7 @@ public class Package
     public void AssignCourier(Courier courier)
     {
         if (Status != PackageStatus.Accepted)
-            throw new InvalidOperationException($"Cannot assign operator to package in status {Status}");
+            throw new InvalidOperationException($"Cannot assign courier to package in status {Status}");
 
         Courier = courier;
     }
