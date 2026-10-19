@@ -1,0 +1,25 @@
+<!-- colorful status; parametr Status -->
+
+@using PackageDeliverySystem.Core
+
+<span class="badge @CssClass">@Status</span>
+
+@code {
+    [Parameter]
+    public PackageStatus Status { get; set; }
+
+    private string CssClass => Status switch
+    {
+        PackageStatus.Ordered => "bg-secondary",
+        PackageStatus.Accepted => "bg-info text-dark",
+        PackageStatus.Preparing => "bg-info text-dark",
+        PackageStatus.Shipped => "bg-primary",
+        PackageStatus.Delivered => "bg-success",
+        PackageStatus.Collected => "bg-success",
+        PackageStatus.Rejected => "bg-danger",
+        PackageStatus.Cancelled => "bg-danger",
+        PackageStatus.Expired => "bg-dark",
+        PackageStatus.ReturnedToSender => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

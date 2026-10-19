@@ -101,6 +101,9 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("DestinationBoxId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ExpiredAt")
                         .HasColumnType("datetime(6)");
 
@@ -129,6 +132,8 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                     b.HasIndex("BoxId");
 
                     b.HasIndex("CourierId");
+
+                    b.HasIndex("DestinationBoxId");
 
                     b.HasIndex("OperatorId");
 
@@ -231,6 +236,11 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                         .HasForeignKey("CourierId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("PackageDeliverySystem.Core.Box", "DestinationBox")
+                        .WithMany()
+                        .HasForeignKey("DestinationBoxId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PackageDeliverySystem.Core.Operator", "Operator")
                         .WithMany("Packages")
                         .HasForeignKey("OperatorId")
@@ -251,6 +261,8 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                     b.Navigation("Box");
 
                     b.Navigation("Courier");
+
+                    b.Navigation("DestinationBox");
 
                     b.Navigation("Operator");
 

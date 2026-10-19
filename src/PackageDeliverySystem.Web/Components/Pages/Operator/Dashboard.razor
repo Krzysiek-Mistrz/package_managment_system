@@ -1,0 +1,43 @@
+@page "/operator"
+@rendermode InteractiveServer
+@using PackageDeliverySystem.Core
+@inject IDeliveryDataService DeliveryData
+
+<PageTitle>Operator Dashboard</PageTitle>
+<h3>Packages ready 2 collection</h3>
+<p><a href="/parcel">View parcel lockers and boxes -></a></p>
+
+@if (packages.Count == 0)
+{
+    <p>No packages are ready for collection.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Sender</th>
+                <th>Recipient</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var package in packages)
+            {
+                <tr>
+                    <td>@package.Id</td>
+                    <td>@package.Sender.Name @package.Sender.Surname</td>
+                    <td>@package.Recipient.Name @package.Recipient.Surname</td>
+                    <td><StatusBadge Status="package.Status" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Package> packages = new List<Package>();
+    protected override async Task OnInitializedAsync() =>
+        packages = (await DeliveryData.GetOrderedPackages()).ToList();
+}

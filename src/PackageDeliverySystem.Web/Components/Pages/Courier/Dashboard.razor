@@ -1,0 +1,50 @@
+@page "/courier"
+@rendermode InteractiveServer
+@using PackageDeliverySystem.Core
+@inject IDeliveryDataService DeliveryData
+
+<PageTitle>Courier Dashboard</PageTitle>
+<h3>Packages ready 2 delivery</h3>
+
+@if (packages.Count == 0)
+{
+    <p>No packages are ready for delivery.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Sender</th>
+                <th>Recipient</th>
+                <th>Status</th>
+                <th>Parcel Locker Sender</th>
+                <th>Parcel Locker Recipient</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var package in packages)
+            {
+                <tr>
+                    <td>@package.Id</td>
+                    <td>@package.Sender.Name @package.Sender.Surname</td>
+                    <td>@package.Recipient.Name @package.Recipient.Surname</td>
+                    <td><StatusBadge Status="package.Status" /></td>
+                    <td>@LockerAddress(package.Box?.ParcelLocker)</td>
+                    <td>@LockerAddress(package.DestinationBox?.ParcelLocker)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private const int DemoCourierId = 1;
+    private List<Package> packages = new List<Package>();
+    protected override async Task OnInitializedAsync() =>
+        packages = (await DeliveryData.GetCourierPackages(DemoCourierId)).ToList();
+
+    private string LockerAddress(ParcelLocker? locker)
+        => locker is null ? "—" : $"{locker.Street} {locker.Number}, {locker.City}";
+}

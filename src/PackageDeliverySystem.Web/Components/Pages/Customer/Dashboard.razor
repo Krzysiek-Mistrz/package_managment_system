@@ -1,0 +1,50 @@
+@page "/customer"
+@rendermode InteractiveServer
+@using PackageDeliverySystem.Core
+@inject IDeliveryDataService DeliveryData
+@inject NavigationManager Navigation
+
+<PageTitle>Customer Dashboard</PageTitle>
+<h3>Packages status:</h3>
+
+@if (packages.Count == 0)
+{
+    <p>No packages...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Sender</th>
+                <th>Recipient</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var package in packages)
+            {
+                <tr>
+                    <td>@package.Id</td>
+                    <td>@package.Sender.Name @package.Sender.Surname</td>
+                    <td>@package.Recipient.Name @package.Recipient.Surname</td>
+                    <td><StatusBadge Status="package.Status" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h3>Sent packages:</h3>
+<button class="btn btn-primary" @onclick="AddPackage">Send new package</button>
+
+@code {
+    private List<Package> packages = new List<Package>();
+
+    protected override async Task OnInitializedAsync() =>
+        // TODO: filter by logged-in customer once auth exists
+        packages = (await DeliveryData.GetOrderedPackages()).ToList();
+
+    private void AddPackage() => Navigation.NavigateTo("/customer/send");
+}

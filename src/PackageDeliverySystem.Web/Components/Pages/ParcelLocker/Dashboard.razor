@@ -1,0 +1,69 @@
+@page "/parcel"
+@rendermode InteractiveServer
+@using PackageDeliverySystem.Core
+@inject IDeliveryDataService DeliveryData
+
+<PageTitle>ParcelLocker Dashboard</PageTitle>
+<h3>Parcel lockers</h3>
+
+@if (lockers.Count == 0)
+{
+    <p>No parcel lockers found.</p>
+}
+else
+{
+    @foreach (var locker in lockers)
+    {
+        <h5>@locker.Street @locker.Number, @locker.City</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Box</th>
+                    <th>Size</th>
+                    <th>Package</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var box in locker.Boxes)
+                {
+                    var occupant = PackageInBox(box);
+                    <tr>
+                        <td>@box.Id</td>
+                        <td>@box.Size</td>
+                        <td>@(occupant is null ? "—" : $"#{occupant.Id}")</td>
+                        <td>@if (occupant is not null) { <StatusBadge Status="occupant.Status" /> } else { <span>Empty</span> }</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<ParcelLocker> lockers = new List<ParcelLocker>();
+    private List<Package> packages = new List<Package>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        lockers = (await DeliveryData.GetParcelLockers()).ToList();
+        packages = (await DeliveryData.GetAllPackages()).ToList();
+    }
+
+    /// <summary>
+    /// a box is occupied either by a package waiting for pickup at its origin box,
+    /// or by a delivered package waiting for collection at its destination box
+    /// </summary>
+    private Package? PackageInBox(Box box)
+    {
+        var atOrigin = packages.FirstOrDefault(p =>
+            p.BoxId == box.Id &&
+            p.Status is PackageStatus.Ordered or PackageStatus.Accepted or PackageStatus.Preparing);
+        if (atOrigin is not null)
+            return atOrigin;
+
+        return packages.FirstOrDefault(p =>
+            p.DestinationBoxId == box.Id &&
+            p.Status == PackageStatus.Delivered);
+    }
+}

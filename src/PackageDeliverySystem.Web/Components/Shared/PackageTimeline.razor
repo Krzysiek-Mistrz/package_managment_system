@@ -1,0 +1,29 @@
+<!-- list 4 accepted at & collected at with date including param package -->
+
+@using PackageDeliverySystem.Core
+
+<ul class=list-group>
+    <li class="list-group-item d-flex justify-content-between">
+        <span>Accepted</span> <span>@Format(Package.AcceptedAt)</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between">
+        <span>Prepared</span> <span>@Format(Package.PreparedAt)</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between">
+        <span>Sent</span> <span>@Format(Package.ShippedAt)</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between">
+        <span>Delivered</span> <span>@Format(Package.DeliveredAt)</span>
+    </li>
+    <li class="list-group-item d-flex justify-content-between">
+        <span>Collected</span> <span>@Format(Package.CollectedAt)</span>
+    </li>
+</ul>
+
+@code {
+    [Parameter]
+    public Package Package { get; set; }
+
+    private string Format(DateTime? value) => 
+        value is null ? "-" : value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
+}

@@ -3,6 +3,7 @@
     <Project Path="src/PackageDeliverySystem.Cli/PackageDeliverySystem.Cli.csproj" />
     <Project Path="src/PackageDeliverySystem.Core/PackageDeliverySystem.Core.csproj" />
     <Project Path="src/PackageDeliverySystem.Infrastructure/PackageDeliverySystem.Infrastructure.csproj" />
+    <Project Path="src/PackageDeliverySystem.Web/PackageDeliverySystem.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PackageDeliverySystem.Tests/PackageDeliverySystem.Tests.csproj" />

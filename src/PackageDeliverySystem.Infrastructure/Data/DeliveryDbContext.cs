@@ -65,6 +65,12 @@ namespace PackageDeliverySystem.Infrastructure.Data
                 .HasForeignKey(p => p.BoxId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            modelBuilder.Entity<Package>()
+                .HasOne(p => p.DestinationBox)
+                .WithMany()
+                .HasForeignKey(p => p.DestinationBoxId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             modelBuilder.Entity<ParcelLocker>()
                 .HasMany(pl => pl.Boxes)
                 .WithOne(b => b.ParcelLocker)

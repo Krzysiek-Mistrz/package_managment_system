@@ -4,6 +4,7 @@ public class Package
 {
     public int Id { get; set; } = 0;
     public int? BoxId { get; set; }
+    public int? DestinationBoxId { get; set; }
     public PackageStatus Status { get; private set; } = PackageStatus.Ordered;
     public int SenderId { get; set; }
     public User Sender { get; set; } = null!;
@@ -14,6 +15,7 @@ public class Package
     public int? OperatorId { get; set; }
     public Operator? Operator { get; set; }
     public Box? Box { get; set; } = null!;
+    public Box? DestinationBox { get; set; }
 
     public DateTime? AcceptedAt { get; private set; }
     public DateTime? PreparedAt { get; private set; }
