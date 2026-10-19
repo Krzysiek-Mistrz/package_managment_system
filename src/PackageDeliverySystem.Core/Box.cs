@@ -7,4 +7,5 @@ public class Box
     public ParcelLocker? ParcelLocker { get; set; } = null!;
     public List<Package>? Packages { get; set; } = new List<Package>();
     public BoxSize Size { get; set; }
+    public int Version { get; set; }
 }

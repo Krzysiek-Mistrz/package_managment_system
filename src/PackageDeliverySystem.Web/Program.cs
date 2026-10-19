@@ -1,6 +1,10 @@
 using PackageDeliverySystem.Web.Components;
 using PackageDeliverySystem.Core;
 using PackageDeliverySystem.Web.Services;
+using Hangfire;
+using Microsoft.EntityFrameworkCore;
+using PackageDeliverySystem.Infrastructure;
+using PackageDeliverySystem.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +12,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<IDeliveryDataService, MockDeliveryDataService>();
+builder.Services.AddDbContext<DeliveryDbContext>(options => 
+    options.UseMySQL(DatabaseSettings.GetConnectionString()));
+builder.Services.AddScoped<IPackageRepository, PackageRepository>();
+builder.Services.AddScoped<IPackageAcceptanceService, PackageAcceptanceService>();
+builder.Services.AddScoped<IPeopleService, PeopleService>();
+builder.Services.AddScoped<EmailNotificationService>();
+builder.Services.AddScoped<INotificationService, BackgroundNotificationService>();
+
+builder.Services.AddHangfire(config => config.UseInMemoryStorage());
+builder.Services.AddHangfireServer();
 
 var app = builder.Build();
 
@@ -26,5 +40,13 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.UseHangfireDashboard("/hangfire");
+
+RecurringJob.AddOrUpdate<IPackageAcceptanceService>(
+    "expire-packages",
+    service => service.ProcessExpiredPackagesAsync(),
+    Cron.Minutely()
+);
 
 app.Run();

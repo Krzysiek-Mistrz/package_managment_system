@@ -16,6 +16,7 @@ namespace PackageDeliverySystem.Infrastructure.Data
         {
             modelBuilder.Entity<Package>().Property(p => p.Status).HasConversion<string>().HasMaxLength(30);
             modelBuilder.Entity<Box>().Property(b => b.Size).HasConversion<string>().HasMaxLength(30);
+            modelBuilder.Entity<Box>().Property(b => b.Version).IsConcurrencyToken();
 
             modelBuilder.Entity<ParcelLocker>().Property(pl => pl.Country).HasMaxLength(100);
             modelBuilder.Entity<ParcelLocker>().Property(pl => pl.City).HasMaxLength(100);

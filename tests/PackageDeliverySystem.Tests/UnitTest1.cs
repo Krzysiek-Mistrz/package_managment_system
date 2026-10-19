@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using PackageDeliverySystem.Core;
+using PackageDeliverySystem.Infrastructure.Data;
 using Xunit;
 using Moq;
 
@@ -139,5 +141,58 @@ public class PackageTests
         Assert.Equal(PackageStatus.Expired, expiredPackage.Status);
         _packageRepoMock.Verify(r => r.UpdateAsync(expiredPackage), Times.Once);
         _notificationMock.Verify(n => n.NotifyAsync(It.IsAny<string>(), It.IsAny<string>()), Times.AtLeastOnce);
+    }
+
+    /// <summary>
+    /// prototype -> integration test against a real mysql, proving that 2 operators racing
+    /// for the same box cannot both succeed. requires "docker compose up -d" and
+    /// PDS_CONNECTION_STRING to be set before running dotnet test
+    /// </summary>
+    [Fact]
+    public async Task TwoOperators_RacingForTheSameBox_OnlyOneSucceeds()
+    {
+        DeliveryDbContext CreateContext() => new(
+            new DbContextOptionsBuilder<DeliveryDbContext>()
+                .UseMySQL(DatabaseSettings.GetConnectionString())
+                .Options);
+
+        int boxId;
+        await using (var setupContext = CreateContext())
+        {
+            var locker = new ParcelLocker { City = "Test", Street = "Test", Number = "1", PostalCode = "00-000", Country = "Poland" };
+            var box = locker.CreateBox(BoxSize.Medium);
+            setupContext.ParcelLockers.Add(locker);
+            await setupContext.SaveChangesAsync();
+            boxId = box.Id;
+        }
+
+        await using var contextA = CreateContext();
+        await using var contextB = CreateContext();
+        var boxForOperatorA = await contextA.Boxes.FirstAsync(b => b.Id == boxId);
+        var boxForOperatorB = await contextB.Boxes.FirstAsync(b => b.Id == boxId);
+
+        boxForOperatorA.Version++;
+        boxForOperatorB.Version++;
+        var saveA = contextA.SaveChangesAsync();
+        var saveB = contextB.SaveChangesAsync();
+
+        var succeededCount = 0;
+        var concurrencyExceptionCount = 0;
+
+        foreach (var save in new[] { saveA, saveB })
+        {
+            try
+            {
+                await save;
+                succeededCount++;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                concurrencyExceptionCount++;
+            }
+        }
+
+        Assert.Equal(1, succeededCount);
+        Assert.Equal(1, concurrencyExceptionCount);
     }
 }
