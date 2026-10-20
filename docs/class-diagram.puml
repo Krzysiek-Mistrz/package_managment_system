@@ -1,0 +1,126 @@
+@startuml
+
+'--------------classes-----------------
+
+abstract class AbstractPerson {
+    +int Id
+    +string Name 
+    +string Surname 
+    +string Email 
+    +string PhoneNumber 
+}
+
+class User {
+    +List<Package>? SentPackages
+    +List<Package>? ReceivedPackages
+}
+
+class Courier {
+    +double Latitude
+    +double Longitude
+    +List<Package>? Packages
+}
+
+class Operator {
+    +List<Package>? Packages
+}
+
+class Package {
+    +int Id
+    +int? BoxId 
+    +int? DestinationBoxId 
+    +PackageStatus Status
+    +int SenderId 
+    +User Sender
+    +int RecipientId 
+    +User Recipient
+    +int? CourierId 
+    +Courier? Courier 
+    +int? OperatorId 
+    +Operator? Operator 
+    +Box? Box
+    +Box? DestinationBox 
+    +DateTime? AcceptedAt
+    +DateTime? PreparedAt
+    +DateTime? ShippedAt
+    +DateTime? DeliveredAt
+    +DateTime? CollectedAt
+    +DateTime? ExpiredAt
+
+    +void Accept()
+    +void Prepare()
+    +void Ship()
+    +void Deliver()
+    +void Collect()
+    +void MarkAsReturned()
+    +void Reject()
+    +void Cancel()
+    +void Expire()
+    +void AssignOperator(Operator operatorUser)
+    +void AssignCourier(Courier courier)
+}
+
+class Box {
+    +int Id
+    +int ParcelLockerId 
+    +ParcelLocker? ParcelLocker
+    +List<Package>? Packages
+    +BoxSize Size 
+    +int Version 
+}
+
+class ParcelLocker {
+    +int Id
+    +double Latitude 
+    +double Longitude 
+    -{readonly} List<Box> _boxes
+    +IReadOnlyList<Box> Boxes
+    +string Country
+    +string City
+    +string Street
+    +string PostalCode
+    +string Number
+
+    +Box CreateBox(BoxSize size)
+    +void RemoveBox(int boxId)
+}
+
+enum PackageStatus {
+    Ordered
+    Accepted
+    Preparing
+    Shipped
+    Delivered
+    Collected
+    Rejected
+    Cancelled
+    Expired
+    ReturnedToSender
+}
+
+enum BoxSize {
+    Small
+    Medium
+    Large
+}
+
+' ------------relations-------------
+
+AbstractPerson <|-- User
+AbstractPerson <|-- Courier
+AbstractPerson <|-- Operator
+
+User "1" <-- "0..*" Package : Sender
+User "1" <-- "0..*" Package : Recipient
+Courier "0..1" <-- "0..*" Package
+Operator "0..1" <-- "0..*" Package
+
+Package "1" --> "0..1" Box : Box
+Package "1" --> "0..1" Box : DestinationBox
+
+ParcelLocker "1" *-- "0..*" Box
+
+Package ..> PackageStatus
+Box ..> BoxSize
+
+@enduml
