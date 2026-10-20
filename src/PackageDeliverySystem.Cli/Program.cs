@@ -11,6 +11,7 @@ services.AddDbContext<DeliveryDbContext>(options =>
 
 services.AddScoped<IPackageRepository, PackageRepository>();
 services.AddScoped<IPackageAcceptanceService, PackageAcceptanceService>();
+services.AddScoped<IPackageFulfillmentService, PackageFulfillmentService>();
 services.AddScoped<IPeopleService, PeopleService>();
 services.AddScoped<INotificationService, NotificationService>();
 
@@ -23,6 +24,7 @@ using (var scope = serviceProvider.CreateScope())
     SeedDemoData(db);
 
     var acceptanceService = scope.ServiceProvider.GetRequiredService<IPackageAcceptanceService>();
+    var fulfillmentService = scope.ServiceProvider.GetRequiredService<IPackageFulfillmentService>();
     var packageRepo = scope.ServiceProvider.GetRequiredService<IPackageRepository>();
 
     Console.WriteLine("--- Package Delivery System Scenario ---");
@@ -30,6 +32,7 @@ using (var scope = serviceProvider.CreateScope())
     var sender = db.Users.OfType<User>().OrderBy(u => u.Id).First();
     var recipient = db.Users.OfType<User>().OrderBy(u => u.Id).Skip(1).First();
     var operatorUser = db.Users.OfType<Operator>().First();
+    var courier = db.Users.OfType<Courier>().First();
     var box = db.Boxes.First();
 
     var package = new Package
@@ -43,14 +46,32 @@ using (var scope = serviceProvider.CreateScope())
     try
     {
         await acceptanceService.AcceptPackageAsync(package.Id, operatorUser.Id, box.Id);
-        var updatedPackage = await packageRepo.GetByIdAsync(package.Id);
+        await PrintStatusAsync(packageRepo, package.Id);
 
-        Console.WriteLine($"Package {updatedPackage!.Id} status: {updatedPackage.Status}");
+        await fulfillmentService.AssignCourierAsync(package.Id, courier.Id);
+        await fulfillmentService.ShipPackageAsync(package.Id);
+        await PrintStatusAsync(packageRepo, package.Id);
+
+        await fulfillmentService.DeliverPackageAsync(package.Id);
+        await PrintStatusAsync(packageRepo, package.Id);
+
+        await fulfillmentService.CollectPackageAsync(package.Id);
+        await PrintStatusAsync(packageRepo, package.Id);
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Scenario failed: {ex.Message}");
     }
+}
+
+/// <summary>
+/// re-reads a package from the repository and prints its current status, so each step
+/// of the scenario shows the effect of the service call that just ran
+/// </summary>
+static async Task PrintStatusAsync(IPackageRepository packageRepo, int packageId)
+{
+    var package = await packageRepo.GetByIdAsync(packageId);
+    Console.WriteLine($"Package {package!.Id} status: {package.Status}");
 }
 
 /// <summary>

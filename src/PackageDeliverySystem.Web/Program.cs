@@ -16,6 +16,7 @@ builder.Services.AddDbContext<DeliveryDbContext>(options =>
     options.UseMySQL(DatabaseSettings.GetConnectionString()));
 builder.Services.AddScoped<IPackageRepository, PackageRepository>();
 builder.Services.AddScoped<IPackageAcceptanceService, PackageAcceptanceService>();
+builder.Services.AddScoped<IPackageFulfillmentService, PackageFulfillmentService>();
 builder.Services.AddScoped<IPeopleService, PeopleService>();
 builder.Services.AddScoped<EmailNotificationService>();
 builder.Services.AddScoped<INotificationService, BackgroundNotificationService>();
