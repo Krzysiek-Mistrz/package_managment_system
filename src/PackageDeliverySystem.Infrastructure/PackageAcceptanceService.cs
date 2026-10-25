@@ -6,15 +6,18 @@ namespace PackageDeliverySystem.Core;
 public class PackageAcceptanceService : IPackageAcceptanceService
 {
     private readonly IPackageRepository _packageRepository;
+    private readonly IBoxRepository _boxRepository;
     private readonly INotificationService _notificationService;
     private readonly IPeopleService _peopleService;
 
     public PackageAcceptanceService(
-        IPackageRepository packageRepository, 
+        IPackageRepository packageRepository,
+        IBoxRepository boxRepository,
         INotificationService notificationService,
         IPeopleService peopleService)
     {
         _packageRepository = packageRepository;
+        _boxRepository = boxRepository;
         _notificationService = notificationService;
         _peopleService = peopleService;
     }
@@ -33,10 +36,20 @@ public class PackageAcceptanceService : IPackageAcceptanceService
         if (package.BoxId != boxId)
             throw new ArgumentException("Box ID does not match the package's assigned box");
 
+        var box = await _boxRepository.GetByIdAsync(boxId)
+            ?? throw new ArgumentException("Box not found");
+        if (box.Size != package.Size)
+        {
+            throw new InvalidOperationException(
+                $"Package declared as {package.Size} cannot be accepted into a {box.Size} box");
+        }
+
         var operatorUser = await _peopleService.GetOperatorAsync(operatorId);
 
         if (operatorUser == null)
+        {
             throw new ArgumentException("Operator not found");
+        }
 
         package.Accept();
         package.AssignOperator(operatorUser);

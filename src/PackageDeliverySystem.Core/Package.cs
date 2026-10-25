@@ -2,7 +2,10 @@ namespace PackageDeliverySystem.Core;
 
 public class Package
 {
+    private static readonly TimeSpan DepositWindow = TimeSpan.FromMinutes(15);
+
     public int Id { get; set; } = 0;
+    public BoxSize Size { get; set; }
     public int? BoxId { get; set; }
     public int? DestinationBoxId { get; set; }
     public PackageStatus Status { get; private set; } = PackageStatus.Ordered;
@@ -16,6 +19,10 @@ public class Package
     public Operator? Operator { get; set; }
     public Box? Box { get; set; } = null!;
     public Box? DestinationBox { get; set; }
+    public Payment? Payment { get; set; }
+
+    public DateTime DepositDeadline { get; set; } = DateTime.UtcNow.Add(DepositWindow);
+    public DateTime? DepositConfirmedAt { get; private set; }
 
     public DateTime? AcceptedAt { get; private set; }
     public DateTime? PreparedAt { get; private set; }
@@ -28,10 +35,29 @@ public class Package
     {
         if (Status != PackageStatus.Ordered)
             throw new InvalidOperationException($"Cannot accept package in status {Status}");
-        
+        if (DepositConfirmedAt is null)
+            throw new InvalidOperationException("Cannot accept a package that was never deposited into its box");
+        if (Payment is null || Payment.Status != PaymentStatus.Completed)
+            throw new InvalidOperationException("Cannot accept a package that has not been paid for");
+
         Status = PackageStatus.Accepted;
         AcceptedAt = DateTime.UtcNow;
         ExpiredAt = AcceptedAt.Value.AddHours(48);
+    }
+
+    /// <summary>
+    /// called once the sender confirms (e.g. by closing the locker door) that the package
+    /// physically went into its box. must happen within the deposit window, otherwise the
+    /// reservation is meant to be released by ProcessMissedDepositsAsync instead
+    /// </summary>
+    public void ConfirmDeposit()
+    {
+        if (Status != PackageStatus.Ordered)
+            throw new InvalidOperationException($"Cannot confirm deposit for package in status {Status}");
+        if (DateTime.UtcNow > DepositDeadline)
+            throw new InvalidOperationException("Deposit window has expired; the order must be re-created");
+
+        DepositConfirmedAt = DateTime.UtcNow;
     }
 
     public void Prepare()

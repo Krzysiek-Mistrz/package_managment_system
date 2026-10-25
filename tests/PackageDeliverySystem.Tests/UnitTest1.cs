@@ -8,7 +8,19 @@ namespace PackageDeliverySystem.Tests;
 
 public class PackageTests
 {
+    /// <summary>
+    /// Accept() now requires a confirmed deposit and a completed payment - this satisfies
+    /// both preconditions directly on the in-memory object, without needing a database
+    /// </summary>
+    private static void MakeReadyForAcceptance(Package package)
+    {
+        package.ConfirmDeposit();
+        package.Payment = new Payment { PackageId = package.Id, PayerEmail = "payer@example.com", Amount = 14.99m };
+        package.Payment.Complete();
+    }
+
     private readonly Mock<IPackageRepository> _packageRepoMock;
+    private readonly Mock<IBoxRepository> _boxRepoMock;
     private readonly Mock<INotificationService> _notificationMock;
     private readonly Mock<IPeopleService> _peopleMock;
     private readonly PackageAcceptanceService _service;
@@ -16,12 +28,14 @@ public class PackageTests
     public PackageTests()
     {
         _packageRepoMock = new Mock<IPackageRepository>();
+        _boxRepoMock = new Mock<IBoxRepository>();
         _notificationMock = new Mock<INotificationService>();
         _peopleMock = new Mock<IPeopleService>();
-        
+
         _service = new PackageAcceptanceService(
-            _packageRepoMock.Object, 
-            _notificationMock.Object, 
+            _packageRepoMock.Object,
+            _boxRepoMock.Object,
+            _notificationMock.Object,
             _peopleMock.Object);
     }
 
@@ -36,6 +50,7 @@ public class PackageTests
 
         Assert.Equal(PackageStatus.Ordered, package.Status);
 
+        MakeReadyForAcceptance(package);
         package.Accept();
         Assert.Equal(PackageStatus.Accepted, package.Status);
 
@@ -74,6 +89,7 @@ public class PackageTests
 
         if (initialStatus == PackageStatus.Accepted)
         {
+            MakeReadyForAcceptance(package);
             package.Accept();
         }
 
@@ -100,10 +116,12 @@ public class PackageTests
     public async Task AcceptPackageAsync_ValidRequest_ShouldUpdateStatusAndNotify()
     {
         var package = new Package { Id = 1, BoxId = 10 };
+        MakeReadyForAcceptance(package);
         var operatorUser = new Operator { Id = 5, Name = "John Doe" };
 
         // when code asks 4 GetByIdAsync don't go to the database. Just return package obj
-        _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);   
+        _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);
+        _boxRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Box { Id = 10, Size = package.Size });
         _peopleMock.Setup(p => p.GetOperatorAsync(5)).ReturnsAsync(operatorUser);
 
         await _service.AcceptPackageAsync(1, 5, 10);
@@ -121,14 +139,30 @@ public class PackageTests
         var package = new Package { Id = 1, BoxId = 10 };
         _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => 
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             _service.AcceptPackageAsync(1, 5, 99));
+    }
+
+    [Fact]
+    public async Task AcceptPackageAsync_PackageTooLargeForBox_ShouldThrowInvalidOperationException()
+    {
+        var package = new Package { Id = 1, BoxId = 10, Size = BoxSize.Large };
+        MakeReadyForAcceptance(package);
+        var operatorUser = new Operator { Id = 5, Name = "John Doe" };
+
+        _packageRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(package);
+        _boxRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Box { Id = 10, Size = BoxSize.Small });
+        _peopleMock.Setup(p => p.GetOperatorAsync(5)).ReturnsAsync(operatorUser);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.AcceptPackageAsync(1, 5, 10));
     }
 
     [Fact]
     public async Task ProcessExpiredPackagesAsync_ShouldExpirePackages()
     {
         var expiredPackage = new Package { Id = 1 };
+        MakeReadyForAcceptance(expiredPackage);
         expiredPackage.Accept();
         
         typeof(Package).GetProperty(nameof(Package.ExpiredAt))?.SetValue(expiredPackage, DateTime.UtcNow.AddHours(-1));

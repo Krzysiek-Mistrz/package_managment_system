@@ -10,8 +10,11 @@ services.AddDbContext<DeliveryDbContext>(options =>
     options.UseMySQL(DatabaseSettings.GetConnectionString()));
 
 services.AddScoped<IPackageRepository, PackageRepository>();
+services.AddScoped<IBoxRepository, BoxRepository>();
 services.AddScoped<IPackageAcceptanceService, PackageAcceptanceService>();
 services.AddScoped<IPackageFulfillmentService, PackageFulfillmentService>();
+services.AddScoped<IPackageIntakeService, PackageIntakeService>();
+services.AddScoped<IPaymentGateway, FakePaymentGateway>();
 services.AddScoped<IPeopleService, PeopleService>();
 services.AddScoped<INotificationService, NotificationService>();
 
@@ -25,6 +28,7 @@ using (var scope = serviceProvider.CreateScope())
 
     var acceptanceService = scope.ServiceProvider.GetRequiredService<IPackageAcceptanceService>();
     var fulfillmentService = scope.ServiceProvider.GetRequiredService<IPackageFulfillmentService>();
+    var intakeService = scope.ServiceProvider.GetRequiredService<IPackageIntakeService>();
     var packageRepo = scope.ServiceProvider.GetRequiredService<IPackageRepository>();
 
     Console.WriteLine("--- Package Delivery System Scenario ---");
@@ -39,12 +43,22 @@ using (var scope = serviceProvider.CreateScope())
     {
         Sender = sender,
         Recipient = recipient,
-        BoxId = box.Id
+        BoxId = box.Id,
+        Size = BoxSize.Medium
     };
     await packageRepo.AddAsync(package);
 
     try
     {
+        var paymentReference = await intakeService.RequestPaymentAsync(package.Id, sender.Email, 14.99m);
+        Console.WriteLine($"Payment requested, reference: {paymentReference}");
+
+        await intakeService.ConfirmPaymentAsync(package.Id);
+        Console.WriteLine("Payment confirmed.");
+
+        await intakeService.ConfirmDepositAsync(package.Id, courier.Id);
+        Console.WriteLine("Deposit confirmed: courier found the package in its box.");
+
         await acceptanceService.AcceptPackageAsync(package.Id, operatorUser.Id, box.Id);
         await PrintStatusAsync(packageRepo, package.Id);
 
@@ -80,7 +94,9 @@ static async Task PrintStatusAsync(IPackageRepository packageRepo, int packageId
 static void SeedDemoData(DeliveryDbContext db)
 {
     if (db.Users.Any())
+    {
         return;
+    }
 
     var locker = new ParcelLocker
     {

@@ -14,11 +14,14 @@ namespace PackageDeliverySystem.Infrastructure
         }
 
         /// <summary>
-        /// retrieves a package by its unique identifier
+        /// retrieves a package by its unique identifier, including its payment -
+        /// Package.Accept() needs the payment loaded to check it was completed
         /// </summary>
         public async Task<Package?> GetByIdAsync(int id)
         {
-            return await _context.Packages.FindAsync(id);
+            return await _context.Packages
+                .Include(p => p.Payment)
+                .FirstOrDefaultAsync(p => p.Id == id);
         }
 
         /// <summary>
@@ -57,6 +60,22 @@ namespace PackageDeliverySystem.Infrastructure
                 .Where(p => 
                     (p.Status == PackageStatus.Accepted && p.ExpiredAt < now) ||
                     (p.Status == PackageStatus.Shipped && p.ExpiredAt < now)
+                )
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// scans 4 packages whose deposit window closed without the sender ever confirming
+        /// they put the item in the box
+        /// </summary>
+        public async Task<IEnumerable<Package>> GetPackagesWithMissedDepositAsync()
+        {
+            var now = DateTime.UtcNow;
+            return await _context.Packages
+                .Where(p =>
+                    p.Status == PackageStatus.Ordered &&
+                    p.DepositConfirmedAt == null &&
+                    p.DepositDeadline < now
                 )
                 .ToListAsync();
         }

@@ -15,8 +15,11 @@ builder.Services.AddSingleton<IDeliveryDataService, MockDeliveryDataService>();
 builder.Services.AddDbContext<DeliveryDbContext>(options => 
     options.UseMySQL(DatabaseSettings.GetConnectionString()));
 builder.Services.AddScoped<IPackageRepository, PackageRepository>();
+builder.Services.AddScoped<IBoxRepository, BoxRepository>();
 builder.Services.AddScoped<IPackageAcceptanceService, PackageAcceptanceService>();
 builder.Services.AddScoped<IPackageFulfillmentService, PackageFulfillmentService>();
+builder.Services.AddScoped<IPackageIntakeService, PackageIntakeService>();
+builder.Services.AddScoped<IPaymentGateway, FakePaymentGateway>();
 builder.Services.AddScoped<IPeopleService, PeopleService>();
 builder.Services.AddScoped<EmailNotificationService>();
 builder.Services.AddScoped<INotificationService, BackgroundNotificationService>();
@@ -47,6 +50,12 @@ app.UseHangfireDashboard("/hangfire");
 RecurringJob.AddOrUpdate<IPackageAcceptanceService>(
     "expire-packages",
     service => service.ProcessExpiredPackagesAsync(),
+    Cron.Minutely()
+);
+
+RecurringJob.AddOrUpdate<IPackageIntakeService>(
+    "release-missed-deposits",
+    service => service.ProcessMissedDepositsAsync(),
     Cron.Minutely()
 );
 

@@ -59,6 +59,15 @@ Ordered -> Accepted -> Preparing -> Shipped -> Delivered -> Collected
 
 A `Package` references an origin `Box` (where the sender drops it) and a destination `Box` (where the recipient collects it); each `Box` belongs to a `ParcelLocker`. `Users` holds every person in the system (`Customer`, `Courier`, `Operator`) in a single table, distinguished by a discriminator column, since any of them can be linked to any number of packages.
 
+## Payments
+
+A `Package` must be paid for and physically deposited before an operator can accept it; `Package.Accept()` enforces both as preconditions. Neither requires the sender to have an account: payment only needs an e-mail address, and the deposit is confirmed by a courier rather than self-reported by the sender.
+
+- **Payment** is a separate `Payment` entity (its own `Pending -> Completed/Failed` lifecycle, not just a flag on `Package`), linked 1-to-1 to its package. The real payment provider is never called directly: `IPaymentGateway` is the extension point an implementer swaps in for Stripe, Przelewy24, PayU or any other gateway; `FakePaymentGateway` is a stand-in that always succeeds, used for local demos and tests.
+- **Deposit confirmation** is deliberately not something the sender can trigger: `IPackageIntakeService.ConfirmDepositAsync` requires a real courier to be looked up first, matching the real-world flow of a courier opening the box at pickup time. If the courier finds the box empty, `ReportMissingDepositAsync` cancels the order on the spot, fault attributed to the sender. If no courier visits in time at all, a Hangfire recurring job (`release-missed-deposits`) cancels the order automatically once its 15-minute deposit window closes - the same mechanism `expire-packages` uses for collection timeouts.
+- **Idempotency**: a payment webhook firing twice is treated as success rather than an error, and the database itself enforces at most one `Payment` row per `Package` via a unique foreign key, so a duplicate payment request can't silently create two.
+- **Known gap**: refunding a completed payment when a package is later rejected or cancelled is not implemented - it depends entirely on the real gateway's own refund API, which this project does not have access to. So the developer implementing this framework should take care of that :)
+
 ## Prototypes
 
 Three areas were prototyped ahead of the full implementation to validate technical risk before committing to it.

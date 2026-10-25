@@ -11,10 +11,12 @@ namespace PackageDeliverySystem.Infrastructure.Data
         public DbSet<Box> Boxes { get; set; }
         public DbSet<ParcelLocker> ParcelLockers { get; set; }
         public DbSet<AbstractPerson> Users { get; set; }
+        public DbSet<Payment> Payments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Package>().Property(p => p.Status).HasConversion<string>().HasMaxLength(30);
+            modelBuilder.Entity<Package>().Property(p => p.Size).HasConversion<string>().HasMaxLength(30);
             modelBuilder.Entity<Box>().Property(b => b.Size).HasConversion<string>().HasMaxLength(30);
             modelBuilder.Entity<Box>().Property(b => b.Version).IsConcurrencyToken();
 
@@ -77,6 +79,16 @@ namespace PackageDeliverySystem.Infrastructure.Data
                 .WithOne(b => b.ParcelLocker)
                 .HasForeignKey(b => b.ParcelLockerId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.Package)
+                .WithOne(pkg => pkg.Payment)
+                .HasForeignKey<Payment>(p => p.PackageId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Payment>().Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
+            modelBuilder.Entity<Payment>().Property(p => p.PayerEmail).HasMaxLength(255);
+            modelBuilder.Entity<Payment>().Property(p => p.ExternalReference).HasMaxLength(100);
+            modelBuilder.Entity<Payment>().Property(p => p.Amount).HasPrecision(10, 2);
         }
     }
 }

@@ -105,6 +105,12 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("DepositConfirmedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("DepositDeadline")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int?>("DestinationBoxId")
                         .HasColumnType("int");
 
@@ -125,6 +131,11 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
 
                     b.Property<DateTime?>("ShippedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Size")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -188,6 +199,47 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ParcelLockers");
+                });
+
+            modelBuilder.Entity("PackageDeliverySystem.Core.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ExternalReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("PackageId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayerEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackageId")
+                        .IsUnique();
+
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("PackageDeliverySystem.Core.Courier", b =>
@@ -275,9 +327,25 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                     b.Navigation("Sender");
                 });
 
+            modelBuilder.Entity("PackageDeliverySystem.Core.Payment", b =>
+                {
+                    b.HasOne("PackageDeliverySystem.Core.Package", "Package")
+                        .WithOne("Payment")
+                        .HasForeignKey("PackageDeliverySystem.Core.Payment", "PackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Package");
+                });
+
             modelBuilder.Entity("PackageDeliverySystem.Core.Box", b =>
                 {
                     b.Navigation("Packages");
+                });
+
+            modelBuilder.Entity("PackageDeliverySystem.Core.Package", b =>
+                {
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("PackageDeliverySystem.Core.ParcelLocker", b =>

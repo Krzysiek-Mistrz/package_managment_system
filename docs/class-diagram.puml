@@ -27,19 +27,23 @@ class Operator {
 
 class Package {
     +int Id
-    +int? BoxId 
-    +int? DestinationBoxId 
+    +BoxSize Size
+    +int? BoxId
+    +int? DestinationBoxId
     +PackageStatus Status
-    +int SenderId 
+    +int SenderId
     +User Sender
-    +int RecipientId 
+    +int RecipientId
     +User Recipient
-    +int? CourierId 
-    +Courier? Courier 
-    +int? OperatorId 
-    +Operator? Operator 
+    +int? CourierId
+    +Courier? Courier
+    +int? OperatorId
+    +Operator? Operator
     +Box? Box
-    +Box? DestinationBox 
+    +Box? DestinationBox
+    +Payment? Payment
+    +DateTime DepositDeadline
+    +DateTime? DepositConfirmedAt
     +DateTime? AcceptedAt
     +DateTime? PreparedAt
     +DateTime? ShippedAt
@@ -48,6 +52,7 @@ class Package {
     +DateTime? ExpiredAt
 
     +void Accept()
+    +void ConfirmDeposit()
     +void Prepare()
     +void Ship()
     +void Deliver()
@@ -58,6 +63,21 @@ class Package {
     +void Expire()
     +void AssignOperator(Operator operatorUser)
     +void AssignCourier(Courier courier)
+}
+
+class Payment {
+    +int Id
+    +int PackageId
+    +Package Package
+    +string PayerEmail
+    +decimal Amount
+    +PaymentStatus Status
+    +string? ExternalReference
+    +DateTime CreatedAt
+    +DateTime? CompletedAt
+
+    +void Complete()
+    +void Fail()
 }
 
 class Box {
@@ -104,6 +124,12 @@ enum BoxSize {
     Large
 }
 
+enum PaymentStatus {
+    Pending
+    Completed
+    Failed
+}
+
 ' ------------relations-------------
 
 AbstractPerson <|-- User
@@ -120,7 +146,11 @@ Package "1" --> "0..1" Box : DestinationBox
 
 ParcelLocker "1" *-- "0..*" Box
 
+Package "1" *-- "0..1" Payment
+
 Package ..> PackageStatus
+Package ..> BoxSize
 Box ..> BoxSize
+Payment ..> PaymentStatus
 
 @enduml
