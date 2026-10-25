@@ -1,28 +1,34 @@
 @startuml
 
+left to right direction
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
 '--------------classes-----------------
 
-abstract class AbstractPerson {
-    +int Id
-    +string Name 
-    +string Surname 
-    +string Email 
-    +string PhoneNumber 
-}
+together {
+    abstract class AbstractPerson {
+        +int Id
+        +string Name
+        +string Surname
+        +string Email
+        +string PhoneNumber
+    }
 
-class User {
-    +List<Package>? SentPackages
-    +List<Package>? ReceivedPackages
-}
+    class User {
+        +List<Package>? SentPackages
+        +List<Package>? ReceivedPackages
+    }
 
-class Courier {
-    +double Latitude
-    +double Longitude
-    +List<Package>? Packages
-}
+    class Courier {
+        +double Latitude
+        +double Longitude
+        +List<Package>? Packages
+    }
 
-class Operator {
-    +List<Package>? Packages
+    class Operator {
+        +List<Package>? Packages
+    }
 }
 
 class Package {
@@ -80,54 +86,58 @@ class Payment {
     +void Fail()
 }
 
-class Box {
-    +int Id
-    +int ParcelLockerId 
-    +ParcelLocker? ParcelLocker
-    +List<Package>? Packages
-    +BoxSize Size 
-    +int Version 
+together {
+    class Box {
+        +int Id
+        +int ParcelLockerId
+        +ParcelLocker? ParcelLocker
+        +List<Package>? Packages
+        +BoxSize Size
+        +int Version
+    }
+
+    class ParcelLocker {
+        +int Id
+        +double Latitude
+        +double Longitude
+        -{readonly} List<Box> _boxes
+        +IReadOnlyList<Box> Boxes
+        +string Country
+        +string City
+        +string Street
+        +string PostalCode
+        +string Number
+
+        +Box CreateBox(BoxSize size)
+        +void RemoveBox(int boxId)
+    }
 }
 
-class ParcelLocker {
-    +int Id
-    +double Latitude 
-    +double Longitude 
-    -{readonly} List<Box> _boxes
-    +IReadOnlyList<Box> Boxes
-    +string Country
-    +string City
-    +string Street
-    +string PostalCode
-    +string Number
+together {
+    enum PackageStatus {
+        Ordered
+        Accepted
+        Preparing
+        Shipped
+        Delivered
+        Collected
+        Rejected
+        Cancelled
+        Expired
+        ReturnedToSender
+    }
 
-    +Box CreateBox(BoxSize size)
-    +void RemoveBox(int boxId)
-}
+    enum BoxSize {
+        Small
+        Medium
+        Large
+    }
 
-enum PackageStatus {
-    Ordered
-    Accepted
-    Preparing
-    Shipped
-    Delivered
-    Collected
-    Rejected
-    Cancelled
-    Expired
-    ReturnedToSender
-}
-
-enum BoxSize {
-    Small
-    Medium
-    Large
-}
-
-enum PaymentStatus {
-    Pending
-    Completed
-    Failed
+    enum PaymentStatus {
+        Pending
+        Completed
+        Failed
+    }
 }
 
 ' ------------relations-------------
