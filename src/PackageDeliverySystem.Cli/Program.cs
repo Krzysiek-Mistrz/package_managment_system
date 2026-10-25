@@ -17,6 +17,7 @@ services.AddScoped<IPackageIntakeService, PackageIntakeService>();
 services.AddScoped<IPaymentGateway, FakePaymentGateway>();
 services.AddScoped<IPeopleService, PeopleService>();
 services.AddScoped<INotificationService, NotificationService>();
+services.AddScoped<IRatingService, RatingService>();
 
 var serviceProvider = services.BuildServiceProvider();
 
@@ -29,6 +30,7 @@ using (var scope = serviceProvider.CreateScope())
     var acceptanceService = scope.ServiceProvider.GetRequiredService<IPackageAcceptanceService>();
     var fulfillmentService = scope.ServiceProvider.GetRequiredService<IPackageFulfillmentService>();
     var intakeService = scope.ServiceProvider.GetRequiredService<IPackageIntakeService>();
+    var ratingService = scope.ServiceProvider.GetRequiredService<IRatingService>();
     var packageRepo = scope.ServiceProvider.GetRequiredService<IPackageRepository>();
 
     Console.WriteLine("--- Package Delivery System Scenario ---");
@@ -71,6 +73,15 @@ using (var scope = serviceProvider.CreateScope())
 
         await fulfillmentService.CollectPackageAsync(package.Id);
         await PrintStatusAsync(packageRepo, package.Id);
+
+        await ratingService.RateCourierAsync(package.Id, recipient.Id, 5);
+        await ratingService.RateSenderAsync(package.Id, recipient.Id, 4);
+
+        // same DbContext instance as the services above (same DI scope), so courier.Rank
+        // is already updated in memory - no re-query needed to see the effect
+        Console.WriteLine($"Courier {courier.Name} rank is now: {courier.Rank}");
+        Console.WriteLine($"Sender {sender.Name} rank is now: {sender.Rank}");
+        Console.WriteLine($"Operator {operatorUser.Name} rank is still: {operatorUser.Rank?.ToString() ?? "null"}");
     }
     catch (Exception ex)
     {

@@ -28,6 +28,18 @@ public class PeopleService : IPeopleService
     /// <summary>
     /// retrieves a courier by their unique identifier
     /// </summary>
-    public async Task<Courier?> GetCourierAsync(int courierId) 
+    public async Task<Courier?> GetCourierAsync(int courierId)
         => await _context.Users.OfType<Courier>().FirstOrDefaultAsync(c => c.Id == courierId);
+
+    /// <summary>
+    /// directly overwrites a person's rank - no history is kept, each rating just replaces the last
+    /// </summary>
+    public async Task UpdateRankAsync(int personId, int rank)
+    {
+        var person = await _context.Users.FirstOrDefaultAsync(u => u.Id == personId)
+            ?? throw new ArgumentException("Person not found");
+
+        person.Rank = rank;
+        await _context.SaveChangesAsync();
+    }
 }

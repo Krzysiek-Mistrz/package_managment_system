@@ -13,6 +13,7 @@ together {
         +string Surname
         +string Email
         +string PhoneNumber
+        +int? Rank
     }
 
     class User {

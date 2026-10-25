@@ -40,6 +40,9 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<double?>("Rank")
+                        .HasColumnType("double");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(20)
