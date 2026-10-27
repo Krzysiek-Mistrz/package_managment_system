@@ -9,8 +9,9 @@ public abstract class AbstractPerson
     public string PhoneNumber { get; set; } = string.Empty;
 
     /// <summary>
-    /// average of all Ratings received as a courier or as a sender. null until first rated.
-    /// recalculated from Rating rows, not set by hand - see RatingRepository.RecalculateRankAsync
+    /// 1-5 rating left by a recipient after collecting a delivery, for a courier or a sender.
+    /// null until first rated. overwritten by each new rating - no history is kept.
+    /// set via IPeopleService.UpdateRankAsync, never directly
     /// </summary>
     public int? Rank { get; set; }
 }

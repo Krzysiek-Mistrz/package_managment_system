@@ -1,0 +1,290 @@
+' corrected order vs the original drafts: deposit confirmation (02) now happens BEFORE
+' operator acceptance (03), because Package.Accept() requires DepositConfirmedAt to already
+' be set - accepting first was never possible against the real code.
+
+@startuml 01-order-and-payment
+title 01 - Customer: send new package (order + payment)
+
+actor "User\n(Sender)" as Sender
+participant "Blazor\nWeb App" as Web
+participant "PackageOrderService" as OrderSvc
+participant "PackageIntakeService" as IntakeSvc
+database "MySQL\n(EF Core)" as DB
+participant "Payment\nGateway" as Gateway
+queue "Hangfire\nJob Queue" as Hangfire
+
+Sender -> Web: Open "Send new package"
+Web -> OrderSvc: GetParcelLockers()
+OrderSvc -> DB: SELECT ParcelLocker + Boxes
+DB --> OrderSvc: lockers
+OrderSvc --> Web: lockers
+Web --> Sender: list / map of lockers
+
+Sender -> Web: choose origin locker, destination locker,\nsize (S/M/L), recipient
+
+Web -> OrderSvc: CreatePackageAsync(senderId, recipientId,\noriginLockerId, destLockerId, size)
+OrderSvc -> DB: FindFreeBoxAsync(originLockerId, size)
+DB --> OrderSvc: originBox / null
+
+alt no free box at origin
+    OrderSvc --> Web: throw InvalidOperationException\n"No free box - choose another locker/size"
+    Web --> Sender: "No free box - choose another locker/size"
+else origin box found
+    OrderSvc -> DB: FindFreeBoxAsync(destLockerId, size, exclude: originBox.Id)
+    DB --> OrderSvc: destinationBox / null
+
+    alt no free box at destination
+        OrderSvc --> Web: throw InvalidOperationException
+        Web --> Sender: "No free box - choose another locker/size"
+    else destination box found
+        OrderSvc -> DB: INSERT Package(Status=Ordered,\nBoxId, DestinationBoxId, DepositDeadline=now+48h)
+        OrderSvc --> Web: package
+        Web --> Sender: package created
+
+        Sender -> Web: pay
+        Web -> IntakeSvc: RequestPaymentAsync(packageId, payerEmail, amount)
+        IntakeSvc -> Gateway: InitiatePaymentAsync(payerEmail, amount)
+        Gateway --> IntakeSvc: externalReference
+        IntakeSvc -> DB: INSERT Payment(Status=Pending)
+        IntakeSvc --> Web: paymentUrl / reference
+        Web --> Sender: redirect to payment
+
+        Sender -> Gateway: complete payment on gateway's own page
+        Web -> IntakeSvc: ConfirmPaymentAsync(packageId)
+        IntakeSvc -> Gateway: GetPaymentStatusAsync(externalReference)
+        Gateway --> IntakeSvc: Completed / Failed
+
+        alt Completed
+            IntakeSvc -> IntakeSvc: Payment.Complete()
+            IntakeSvc -> DB: SaveChanges()
+            IntakeSvc -> Hangfire: Enqueue(SendNotification\n("Payment confirmed"))
+            IntakeSvc --> Web: OK
+            Web --> Sender: confirmation
+        else Failed
+            IntakeSvc -> IntakeSvc: Payment.Fail()
+            IntakeSvc -> DB: SaveChanges()
+            IntakeSvc --> Web: Failed
+            Web --> Sender: "Payment failed" (retry via RequestPaymentAsync)
+        end
+    end
+end
+
+note over OrderSvc, DB
+  Both boxes are reserved for this package from Ordered until it's
+  Collected (or cancelled/rejected/expired) - no other order can take
+  either box in the meantime. See BoxRepository.FindFreeBoxAsync.
+end note
+
+@enduml
+
+@startuml 02-deposit-confirmation
+title 02 - Courier: confirm deposit (or report it missing)
+
+actor "Courier\n(doing locker rounds)" as Courier
+participant "Blazor\nWeb App" as Web
+participant "PackageIntakeService" as IntakeSvc
+database "MySQL\n(EF Core)" as DB
+queue "Hangfire\nJob Queue" as Hangfire
+
+note over Courier
+  Any courier who happens to be checking this locker can confirm -
+  not necessarily the one later assigned to carry the package (that
+  assignment only happens after acceptance, see diagram 04).
+  The sender can NOT self-report this.
+end note
+
+Courier -> Web: open origin box (kod/token), look inside
+
+alt package is physically there
+    Courier -> Web: Confirm deposit (packageId)
+    Web -> IntakeSvc: ConfirmDepositAsync(packageId, courierId)
+    IntakeSvc -> DB: GetCourierAsync(courierId)
+    DB --> IntakeSvc: courier
+    IntakeSvc -> IntakeSvc: package.ConfirmDeposit()\n(checks now <= DepositDeadline)
+    IntakeSvc -> DB: SaveChanges()
+    IntakeSvc -> Hangfire: Enqueue(SendNotification\n("Deposit confirmed"))
+    IntakeSvc --> Web: OK
+    Web --> Courier: confirmed
+else box is empty
+    Courier -> Web: Report missing (packageId)
+    Web -> IntakeSvc: ReportMissingDepositAsync(packageId, courierId)
+    IntakeSvc -> IntakeSvc: package.Cancel()
+    IntakeSvc -> DB: SaveChanges()
+    IntakeSvc -> Hangfire: Enqueue(SendNotification\n("Cancelled - sender never deposited"))
+    IntakeSvc --> Web: OK
+end
+
+== fallback: nobody checks in time ==
+queue "Hangfire\nrecurring job" as Recurring
+Recurring -> IntakeSvc: ProcessMissedDepositsAsync() (every minute)
+IntakeSvc -> DB: GetPackagesWithMissedDepositAsync()
+DB --> IntakeSvc: packages past DepositDeadline, still Ordered
+loop each package
+    IntakeSvc -> IntakeSvc: package.Cancel()
+    IntakeSvc -> DB: SaveChanges()
+    IntakeSvc -> Hangfire: Enqueue(SendNotification("Cancelled"))
+end
+
+@enduml
+
+@startuml 03-operator-accept-reject
+title 03 - Operator: accept or reject
+
+actor Operator
+participant "Blazor\nWeb App" as Web
+participant "PackageAcceptanceService" as AcceptSvc
+database "MySQL\n(EF Core)" as DB
+queue "Hangfire\nJob Queue" as Hangfire
+
+Operator -> Web: Open "Packages ready for processing"
+Web -> AcceptSvc: GetPackages(status = Ordered)
+AcceptSvc -> DB: SELECT
+DB --> AcceptSvc: list
+AcceptSvc --> Web: list
+Web --> Operator: list
+
+alt Accept
+    Operator -> Web: Accept(packageId, boxId)
+    Web -> AcceptSvc: AcceptPackageAsync(packageId, operatorId, boxId)
+    AcceptSvc -> DB: GetByIdAsync(packageId) (includes Payment)
+    DB --> AcceptSvc: package
+    AcceptSvc -> AcceptSvc: verify package.BoxId == boxId
+    AcceptSvc -> DB: GetByIdAsync(boxId)
+    DB --> AcceptSvc: box
+    AcceptSvc -> AcceptSvc: verify box.Size == package.Size
+    AcceptSvc -> DB: GetOperatorAsync(operatorId)
+    DB --> AcceptSvc: operator
+
+    AcceptSvc -> AcceptSvc: package.Accept()\n(throws if DepositConfirmedAt is null\nor Payment.Status != Completed)
+    AcceptSvc -> AcceptSvc: package.AssignOperator(operator)
+    AcceptSvc -> DB: SaveChanges()
+    AcceptSvc -> Hangfire: Enqueue(SendNotification("Package accepted"))
+    AcceptSvc --> Web: OK
+else Reject
+    Operator -> Web: Reject(packageId)
+    Web -> AcceptSvc: RejectPackageAsync(packageId, operatorId)
+    AcceptSvc -> DB: GetByIdAsync(packageId)
+    DB --> AcceptSvc: package
+    AcceptSvc -> DB: GetOperatorAsync(operatorId)
+    DB --> AcceptSvc: operator
+    AcceptSvc -> AcceptSvc: package.Reject()\n(Status=Rejected; allowed from Ordered or Accepted)
+    AcceptSvc -> DB: SaveChanges()
+    AcceptSvc -> Hangfire: Enqueue(SendNotification("Package rejected"))
+    AcceptSvc --> Web: OK
+end
+
+Web --> Operator: updated list
+
+@enduml
+
+@startuml 04-courier-pickup-delivery
+title 04 - Courier: assign, pick up, deliver
+
+actor Operator
+actor Courier
+participant "Blazor\nWeb App" as Web
+participant "PackageFulfillmentService" as FulfillSvc
+database "MySQL\n(EF Core)" as DB
+participant "Box" as Box
+queue "Hangfire\nJob Queue" as Hangfire
+
+== assign (operator, right after accepting - diagram 03) ==
+Operator -> Web: Assign courier
+Web -> FulfillSvc: AssignCourierAsync(packageId, courierId)
+FulfillSvc -> DB: GetCourierAsync(courierId)
+DB --> FulfillSvc: courier
+FulfillSvc -> FulfillSvc: package.AssignCourier(courier)\n(requires Status == Accepted)
+FulfillSvc -> DB: SaveChanges()
+FulfillSvc --> Web: OK
+
+== pick up ==
+Courier -> Web: Open "Packages assigned to me"
+Web -> FulfillSvc: GetPackagesForCourier(courierId)
+FulfillSvc -> DB: SELECT WHERE CourierId = @id
+DB --> FulfillSvc: list
+FulfillSvc --> Web: list
+Web --> Courier: list
+
+Courier -> Web: Pick up (packageId)
+Web -> FulfillSvc: ShipPackageAsync(packageId)
+Courier -> Box: open origin box (kod/token)
+FulfillSvc -> FulfillSvc: package.Prepare()\n(Status=Preparing, PreparedAt=now)
+FulfillSvc -> FulfillSvc: package.Ship()\n(Status=Shipped, ShippedAt=now)
+FulfillSvc -> DB: SaveChanges()
+FulfillSvc -> Hangfire: Enqueue(SendNotification("Package shipped"))
+FulfillSvc --> Web: OK
+
+== delivery ==
+Courier -> Web: Deliver (packageId)
+Web -> FulfillSvc: DeliverPackageAsync(packageId)
+Courier -> Box: open destination box
+FulfillSvc -> FulfillSvc: package.Deliver()\n(Status=Delivered, DeliveredAt=now,\ngenerates PickupCode)
+FulfillSvc -> DB: SaveChanges()
+FulfillSvc -> Hangfire: Enqueue(SendNotification\n("Package delivered, pickup code: " + PickupCode))
+FulfillSvc --> Web: OK
+
+note over FulfillSvc, DB
+  No "destination box unavailable / secondary location" branch here:
+  the destination box has been reserved for this package since it was
+  ordered (diagram 01), so by construction it cannot have been taken
+  by anyone else by delivery time.
+end note
+
+@enduml
+
+@startuml 05-customer-collect-and-rate
+title 05 - Customer: collect package and rate courier / sender
+
+actor "User\n(Recipient)" as Recipient
+participant "Blazor\nWeb App" as Web
+participant "PackageFulfillmentService" as FulfillSvc
+participant "RatingService" as RatingSvc
+database "MySQL\n(EF Core)" as DB
+
+Recipient -> Web: Open "My packages"
+Web -> FulfillSvc: GetPackagesForUser(userId)
+FulfillSvc -> DB: SELECT
+DB --> FulfillSvc: packages + statuses
+FulfillSvc --> Web: packages + statuses
+Web --> Recipient: packages + statuses
+
+Recipient -> Web: Collect (packageId, pickup code)
+Web -> FulfillSvc: CollectPackageAsync(packageId, userId, code)
+FulfillSvc -> DB: GetByIdAsync(packageId)
+DB --> FulfillSvc: package
+
+alt package.RecipientId != userId
+    FulfillSvc --> Web: throw InvalidOperationException\n"Only this package's recipient can collect it"
+    Web --> Recipient: error
+else wrong code or wrong status
+    FulfillSvc -> FulfillSvc: package.Collect(code)\n(throws: invalid code, or Status != Delivered)
+    FulfillSvc --> Web: error
+    Web --> Recipient: message
+else OK
+    FulfillSvc -> FulfillSvc: package.Collect(code)\n(Status=Collected, CollectedAt=now)
+    FulfillSvc -> DB: SaveChanges()
+    FulfillSvc --> Web: OK
+    Web --> Recipient: "Package collected"
+
+    opt rate (only once Collected)
+        Recipient -> Web: Rate courier (1..5)
+        Web -> RatingSvc: RateCourierAsync(packageId, recipientId, score)
+        RatingSvc -> DB: GetByIdAsync(packageId)
+        DB --> RatingSvc: package
+        RatingSvc -> RatingSvc: verify Status == Collected\nand RecipientId == recipientId
+        RatingSvc -> DB: UpdateRankAsync(package.CourierId, score)
+        RatingSvc --> Web: OK
+
+        Recipient -> Web: Rate sender (1..5)
+        Web -> RatingSvc: RateSenderAsync(packageId, recipientId, score)
+        RatingSvc -> DB: UpdateRankAsync(package.SenderId, score)
+        RatingSvc --> Web: OK
+    end
+end
+
+note over RatingSvc, DB
+  Rank is overwritten by each new rating, not averaged - there is no
+  rating history table (see AbstractPerson.Rank).
+end note
+
+@enduml

@@ -22,6 +22,8 @@ builder.Services.AddScoped<IPackageIntakeService, PackageIntakeService>();
 builder.Services.AddScoped<IPaymentGateway, FakePaymentGateway>();
 builder.Services.AddScoped<IPeopleService, PeopleService>();
 builder.Services.AddScoped<IRatingService, RatingService>();
+builder.Services.AddScoped<ISupportContactService, SupportContactService>();
+builder.Services.AddScoped<IPackageOrderService, PackageOrderService>();
 builder.Services.AddScoped<EmailNotificationService>();
 builder.Services.AddScoped<INotificationService, BackgroundNotificationService>();
 

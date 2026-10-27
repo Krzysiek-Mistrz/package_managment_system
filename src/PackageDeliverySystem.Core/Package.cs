@@ -2,7 +2,10 @@ namespace PackageDeliverySystem.Core;
 
 public class Package
 {
-    private static readonly TimeSpan DepositWindow = TimeSpan.FromMinutes(15);
+    // the whole flow is "order remotely, then go drop it off / pick it up" (not "stand at
+    // the locker while ordering"), so every stage gets the same 48h window - deposit,
+    // acceptance-to-shipping and shipping-to-collection alike. one rule, easy to explain.
+    private static readonly TimeSpan DepositWindow = TimeSpan.FromHours(48);
 
     public int Id { get; set; } = 0;
     public BoxSize Size { get; set; }
@@ -30,6 +33,7 @@ public class Package
     public DateTime? DeliveredAt { get; private set; }
     public DateTime? CollectedAt { get; private set; }
     public DateTime? ExpiredAt { get; private set; }
+    public string? PickupCode { get; private set; }
 
     public void Accept()
     {
@@ -79,6 +83,10 @@ public class Package
         ExpiredAt = ShippedAt.Value.AddHours(48);
     }
 
+    /// <summary>
+    /// generates the pickup code here, not earlier - a code that existed since Ordered would
+    /// sit around unused (and guessable) for up to 48h before anyone needs it
+    /// </summary>
     public void Deliver()
     {
         if (Status != PackageStatus.Shipped)
@@ -86,12 +94,15 @@ public class Package
 
         Status = PackageStatus.Delivered;
         DeliveredAt = DateTime.UtcNow;
+        PickupCode = Random.Shared.Next(100_000, 999_999).ToString();
     }
 
-    public void Collect()
+    public void Collect(string code)
     {
         if (Status != PackageStatus.Delivered)
             throw new InvalidOperationException($"Cannot collect package in status {Status}");
+        if (PickupCode is null || code != PickupCode)
+            throw new InvalidOperationException("Invalid pickup code");
 
         Status = PackageStatus.Collected;
         CollectedAt = DateTime.UtcNow;

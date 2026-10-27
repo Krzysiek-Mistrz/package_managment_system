@@ -40,8 +40,8 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<double?>("Rank")
-                        .HasColumnType("double");
+                    b.Property<int?>("Rank")
+                        .HasColumnType("int");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -122,6 +122,10 @@ namespace PackageDeliverySystem.Infrastructure.Data.Migrations
 
                     b.Property<int?>("OperatorId")
                         .HasColumnType("int");
+
+                    b.Property<string>("PickupCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("varchar(6)");
 
                     b.Property<DateTime?>("PreparedAt")
                         .HasColumnType("datetime(6)");

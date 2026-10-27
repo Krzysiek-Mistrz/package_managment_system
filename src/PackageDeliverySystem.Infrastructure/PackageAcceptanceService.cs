@@ -61,6 +61,27 @@ public class PackageAcceptanceService : IPackageAcceptanceService
     }
 
     /// <summary>
+    /// rejects a package (e.g. damaged on inspection, suspicious contents). allowed from
+    /// Ordered or Accepted - same states Package.Reject() itself allows. doesn't call
+    /// AssignOperator, since that requires Status == Accepted and this can run from Ordered too;
+    /// the operator's name only goes into the notification, not onto the package record
+    /// </summary>
+    public async Task RejectPackageAsync(int packageId, int operatorId)
+    {
+        var package = await _packageRepository.GetByIdAsync(packageId)
+            ?? throw new ArgumentException("Package not found");
+
+        var operatorUser = await _peopleService.GetOperatorAsync(operatorId)
+            ?? throw new ArgumentException("Operator not found");
+
+        package.Reject();
+        await _packageRepository.UpdateAsync(package);
+
+        await _notificationService.NotifyAsync("system",
+            $"Package {package.Id} has been rejected by operator {operatorUser.Name}.");
+    }
+
+    /// <summary>
     /// scans 4 packages that have exceeded their allowed time in a certain state
     /// </summary>
     public async Task ProcessExpiredPackagesAsync()

@@ -18,6 +18,8 @@ services.AddScoped<IPaymentGateway, FakePaymentGateway>();
 services.AddScoped<IPeopleService, PeopleService>();
 services.AddScoped<INotificationService, NotificationService>();
 services.AddScoped<IRatingService, RatingService>();
+services.AddScoped<ISupportContactService, SupportContactService>();
+services.AddScoped<IPackageOrderService, PackageOrderService>();
 
 var serviceProvider = services.BuildServiceProvider();
 
@@ -31,6 +33,8 @@ using (var scope = serviceProvider.CreateScope())
     var fulfillmentService = scope.ServiceProvider.GetRequiredService<IPackageFulfillmentService>();
     var intakeService = scope.ServiceProvider.GetRequiredService<IPackageIntakeService>();
     var ratingService = scope.ServiceProvider.GetRequiredService<IRatingService>();
+    var supportContactService = scope.ServiceProvider.GetRequiredService<ISupportContactService>();
+    var orderService = scope.ServiceProvider.GetRequiredService<IPackageOrderService>();
     var packageRepo = scope.ServiceProvider.GetRequiredService<IPackageRepository>();
 
     Console.WriteLine("--- Package Delivery System Scenario ---");
@@ -39,19 +43,17 @@ using (var scope = serviceProvider.CreateScope())
     var recipient = db.Users.OfType<User>().OrderBy(u => u.Id).Skip(1).First();
     var operatorUser = db.Users.OfType<Operator>().First();
     var courier = db.Users.OfType<Courier>().First();
-    var box = db.Boxes.First();
-
-    var package = new Package
-    {
-        Sender = sender,
-        Recipient = recipient,
-        BoxId = box.Id,
-        Size = BoxSize.Medium
-    };
-    await packageRepo.AddAsync(package);
+    var originLocker = db.ParcelLockers.OrderBy(l => l.Id).First();
+    var destinationLocker = db.ParcelLockers.OrderBy(l => l.Id).Skip(1).First();
 
     try
     {
+        var package = await orderService.CreatePackageAsync(
+            sender.Id, recipient.Id, originLocker.Id, destinationLocker.Id, BoxSize.Medium);
+        var boxId = package.BoxId!.Value;
+        Console.WriteLine(
+            $"Package {package.Id} ordered: box {boxId} at origin, box {package.DestinationBoxId} at destination.");
+
         var paymentReference = await intakeService.RequestPaymentAsync(package.Id, sender.Email, 14.99m);
         Console.WriteLine($"Payment requested, reference: {paymentReference}");
 
@@ -61,7 +63,7 @@ using (var scope = serviceProvider.CreateScope())
         await intakeService.ConfirmDepositAsync(package.Id, courier.Id);
         Console.WriteLine("Deposit confirmed: courier found the package in its box.");
 
-        await acceptanceService.AcceptPackageAsync(package.Id, operatorUser.Id, box.Id);
+        await acceptanceService.AcceptPackageAsync(package.Id, operatorUser.Id, boxId);
         await PrintStatusAsync(packageRepo, package.Id);
 
         await fulfillmentService.AssignCourierAsync(package.Id, courier.Id);
@@ -69,9 +71,10 @@ using (var scope = serviceProvider.CreateScope())
         await PrintStatusAsync(packageRepo, package.Id);
 
         await fulfillmentService.DeliverPackageAsync(package.Id);
-        await PrintStatusAsync(packageRepo, package.Id);
+        var deliveredPackage = await packageRepo.GetByIdAsync(package.Id);
+        Console.WriteLine($"Package {deliveredPackage!.Id} status: {deliveredPackage.Status}, pickup code: {deliveredPackage.PickupCode}");
 
-        await fulfillmentService.CollectPackageAsync(package.Id);
+        await fulfillmentService.CollectPackageAsync(package.Id, recipient.Id, deliveredPackage.PickupCode!);
         await PrintStatusAsync(packageRepo, package.Id);
 
         await ratingService.RateCourierAsync(package.Id, recipient.Id, 5);
@@ -82,6 +85,20 @@ using (var scope = serviceProvider.CreateScope())
         Console.WriteLine($"Courier {courier.Name} rank is now: {courier.Rank}");
         Console.WriteLine($"Sender {sender.Name} rank is now: {sender.Rank}");
         Console.WriteLine($"Operator {operatorUser.Name} rank is still: {operatorUser.Rank?.ToString() ?? "null"}");
+
+        await supportContactService.ContactSupportAsync(
+            recipient.Id, "Package arrived damaged", "The box was crushed on one side, please advise.");
+        Console.WriteLine($"Support contacted by {recipient.Name} - check Mailpit for the message.");
+
+        // second package, taking the reject branch instead of the happy path
+        var rejectedPackage = await orderService.CreatePackageAsync(
+            sender.Id, recipient.Id, originLocker.Id, destinationLocker.Id, BoxSize.Small);
+        await intakeService.RequestPaymentAsync(rejectedPackage.Id, sender.Email, 9.99m);
+        await intakeService.ConfirmPaymentAsync(rejectedPackage.Id);
+        await intakeService.ConfirmDepositAsync(rejectedPackage.Id, courier.Id);
+
+        await acceptanceService.RejectPackageAsync(rejectedPackage.Id, operatorUser.Id);
+        await PrintStatusAsync(packageRepo, rejectedPackage.Id);
     }
     catch (Exception ex)
     {
@@ -109,7 +126,7 @@ static void SeedDemoData(DeliveryDbContext db)
         return;
     }
 
-    var locker = new ParcelLocker
+    var originLocker = new ParcelLocker
     {
         Latitude = 50.0647,
         Longitude = 19.9450,
@@ -119,11 +136,25 @@ static void SeedDemoData(DeliveryDbContext db)
         Street = "Mickiewicza",
         Number = "30"
     };
-    locker.CreateBox(BoxSize.Small);
-    locker.CreateBox(BoxSize.Medium);
-    locker.CreateBox(BoxSize.Large);
+    originLocker.CreateBox(BoxSize.Small);
+    originLocker.CreateBox(BoxSize.Medium);
+    originLocker.CreateBox(BoxSize.Large);
 
-    db.ParcelLockers.Add(locker);
+    var destinationLocker = new ParcelLocker
+    {
+        Latitude = 52.2297,
+        Longitude = 21.0122,
+        Country = "Poland",
+        City = "Warszawa",
+        PostalCode = "00-001",
+        Street = "Marszalkowska",
+        Number = "10"
+    };
+    destinationLocker.CreateBox(BoxSize.Small);
+    destinationLocker.CreateBox(BoxSize.Medium);
+    destinationLocker.CreateBox(BoxSize.Large);
+
+    db.ParcelLockers.AddRange(originLocker, destinationLocker);
     db.Users.AddRange(
         new User { Name = "Alice", Surname = "Nowak", Email = "alice@example.com", PhoneNumber = "500100200" },
         new User { Name = "Bob", Surname = "Kowalski", Email = "bob@example.com", PhoneNumber = "500100201" },

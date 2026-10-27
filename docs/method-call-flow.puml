@@ -1,0 +1,39 @@
+@startuml
+title Przepływ wywołań: od zamówienia do oceny
+
+skinparam backgroundColor white
+skinparam roundcorner 14
+skinparam shadowing false
+skinparam ArrowColor #666666
+skinparam ArrowThickness 1.5
+skinparam defaultFontSize 14
+skinparam rectangle {
+    BorderColor #999999
+    FontStyle bold
+}
+
+rectangle "<b>1. Zamówienie</b>\n\nPackageOrderService.CreatePackageAsync\n→ IBoxRepository.FindFreeBoxAsync ×2 (origin + destination)\n→ new Package { BoxId, DestinationBoxId }\n→ IPackageRepository.AddAsync" as F1 #E8F0FE
+
+rectangle "<b>2. Płatność</b>\n\nPackageIntakeService.RequestPaymentAsync\n→ IPaymentGateway.InitiatePaymentAsync\n\nPackageIntakeService.ConfirmPaymentAsync\n→ IPaymentGateway.GetPaymentStatusAsync\n→ Payment.Complete() / Fail()" as F2 #E6F4EA
+
+rectangle "<b>3. Depozyt</b>\n\nPackageIntakeService.ConfirmDepositAsync\n→ IPeopleService.GetCourierAsync (weryfikacja)\n→ Package.ConfirmDeposit()\n\nalbo: ReportMissingDepositAsync → Package.Cancel()\nalbo (w tle, co minutę): ProcessMissedDepositsAsync" as F3 #FEF7E0
+
+rectangle "<b>4. Przyjęcie</b>\n\nPackageAcceptanceService.AcceptPackageAsync\n→ IBoxRepository.GetByIdAsync (zgodność rozmiaru)\n→ Package.Accept()\n   (sam sprawdza depozyt i płatność)\n→ Package.AssignOperator()" as F4 #FCE8E6
+
+rectangle "<b>5. Realizacja</b>\n\nPackageFulfillmentService:\nAssignCourierAsync\n→ ShipPackageAsync (Prepare + Ship)\n→ DeliverPackageAsync (generuje PickupCode)\n→ CollectPackageAsync (sprawdza kod i odbiorcę)" as F5 #E8EAF6
+
+rectangle "<b>6. Ocena i wsparcie</b>\n\nRatingService.RateCourierAsync / RateSenderAsync\n→ IPeopleService.UpdateRankAsync\n\nSupportContactService.ContactSupportAsync" as F6 #F3E8FD
+
+F1 -right-> F2
+F2 -right-> F3
+F3 -down-> F4
+F4 -left-> F5
+F5 -left-> F6
+
+note as Common
+  Wspólny mianownik dla każdej fazy: każdy zapis kończy się tym samym wzorcem
+  IPackageRepository.UpdateAsync → INotificationService.NotifyAsync
+  → (w Web) Hangfire enqueue → e-mail w tle, więc żadna metoda nie czeka na wysyłkę
+end note
+
+@enduml

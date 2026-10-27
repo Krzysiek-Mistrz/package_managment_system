@@ -57,13 +57,14 @@ class Package {
     +DateTime? DeliveredAt
     +DateTime? CollectedAt
     +DateTime? ExpiredAt
+    +string? PickupCode
 
     +void Accept()
     +void ConfirmDeposit()
     +void Prepare()
     +void Ship()
     +void Deliver()
-    +void Collect()
+    +void Collect(string code)
     +void MarkAsReturned()
     +void Reject()
     +void Cancel()

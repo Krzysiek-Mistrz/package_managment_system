@@ -56,14 +56,17 @@ public class PackageFulfillmentService : IPackageFulfillmentService
         await _packageRepository.UpdateAsync(package);
 
         await _notificationService.NotifyAsync("system",
-            $"Package {package.Id} has been delivered.");
+            $"Package {package.Id} has been delivered. Pickup code: {package.PickupCode}");
     }
 
-    public async Task CollectPackageAsync(int packageId)
+    public async Task CollectPackageAsync(int packageId, int userId, string code)
     {
         var package = await GetPackageOrThrowAsync(packageId);
 
-        package.Collect();
+        if (package.RecipientId != userId)
+            throw new InvalidOperationException("Only this package's recipient can collect it");
+
+        package.Collect(code);
         await _packageRepository.UpdateAsync(package);
 
         await _notificationService.NotifyAsync("system",
